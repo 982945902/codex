@@ -1303,6 +1303,24 @@ pub struct ThreadInjectItemsResponse {}
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export_to = "v2/")]
+pub struct ThreadMailboxSendParams {
+    pub thread_id: String,
+    /// Short external source label included in the model-visible mailbox message.
+    pub source: String,
+    /// Text payload to deliver to the root agent mailbox.
+    pub message: String,
+    /// When true, start a turn for the mailbox message if the thread is idle.
+    pub trigger_turn: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
+pub struct ThreadMailboxSendResponse {}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export_to = "v2/")]
 pub struct ThreadTurnsListParams {
     pub thread_id: String,
     /// Opaque cursor to pass to the next call to continue after the last turn.

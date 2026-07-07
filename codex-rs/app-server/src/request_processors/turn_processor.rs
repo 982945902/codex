@@ -12,6 +12,8 @@ use crate::image_url::is_remote_image_url;
 
 const DIRECT_INPUT_TO_MULTI_AGENT_V2_SUBAGENT_ERROR: &str =
     "direct app-server input is not allowed for multi-agent v2 sub-agents";
+const MAX_THREAD_MAILBOX_SOURCE_BYTES: usize = 128;
+const MAX_THREAD_MAILBOX_MESSAGE_BYTES: usize = 4_000;
 
 fn validate_user_input_image_urls(input: &[V2UserInput]) -> Result<(), JSONRPCErrorError> {
     if input.iter().any(|item| {
@@ -63,6 +65,34 @@ fn validate_response_item_image_urls(items: &[ResponseItem]) -> Result<(), JSONR
         return Err(invalid_request(REMOTE_IMAGE_URL_ERROR));
     }
     Ok(())
+}
+
+fn validate_thread_mailbox_source(source: &str) -> Result<&str, JSONRPCErrorError> {
+    let source = source.trim();
+    if source.is_empty() {
+        return Err(invalid_request("source must not be empty"));
+    }
+    if source.len() > MAX_THREAD_MAILBOX_SOURCE_BYTES {
+        return Err(invalid_request(format!(
+            "source exceeds the maximum length of {MAX_THREAD_MAILBOX_SOURCE_BYTES} bytes"
+        )));
+    }
+    if source.contains('\n') || source.contains('\r') {
+        return Err(invalid_request("source must be a single line"));
+    }
+    Ok(source)
+}
+
+fn validate_thread_mailbox_message(message: &str) -> Result<&str, JSONRPCErrorError> {
+    if message.trim().is_empty() {
+        return Err(invalid_request("message must not be empty"));
+    }
+    if message.len() > MAX_THREAD_MAILBOX_MESSAGE_BYTES {
+        return Err(invalid_request(format!(
+            "message exceeds the maximum length of {MAX_THREAD_MAILBOX_MESSAGE_BYTES} bytes"
+        )));
+    }
+    Ok(message)
 }
 
 #[derive(Clone)]
@@ -177,6 +207,16 @@ impl TurnRequestProcessor {
         params: ThreadInjectItemsParams,
     ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
         self.thread_inject_items_response_inner(params)
+            .await
+            .map(|response| Some(response.into()))
+    }
+
+    pub(crate) async fn thread_mailbox_send(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadMailboxSendParams,
+    ) -> Result<Option<ClientResponsePayload>, JSONRPCErrorError> {
+        self.thread_mailbox_send_inner(request_id, params)
             .await
             .map(|response| Some(response.into()))
     }
@@ -825,6 +865,32 @@ impl TurnRequestProcessor {
                 err => internal_error(format!("failed to inject response items: {err}")),
             })?;
         Ok(ThreadInjectItemsResponse {})
+    }
+
+    async fn thread_mailbox_send_inner(
+        &self,
+        request_id: &ConnectionRequestId,
+        params: ThreadMailboxSendParams,
+    ) -> Result<ThreadMailboxSendResponse, JSONRPCErrorError> {
+        let (_, thread) = self.load_thread(&params.thread_id).await?;
+        let source = validate_thread_mailbox_source(&params.source)?;
+        let message = validate_thread_mailbox_message(&params.message)?;
+        let communication = InterAgentCommunication::new(
+            AgentPath::root(),
+            AgentPath::root(),
+            Vec::new(),
+            format!("External mailbox message\nSource: {source}\n\n{message}"),
+            params.trigger_turn,
+        );
+        self.submit_core_op(
+            request_id,
+            thread.as_ref(),
+            Op::InterAgentCommunication { communication },
+        )
+        .await
+        .map_err(|err| internal_error(format!("failed to send mailbox message: {err}")))?;
+
+        Ok(ThreadMailboxSendResponse {})
     }
 
     async fn set_app_server_client_info(

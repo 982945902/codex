@@ -88,6 +88,7 @@ use codex_app_server_protocol::ThreadInjectItemsParams;
 use codex_app_server_protocol::ThreadItemsListParams;
 use codex_app_server_protocol::ThreadListParams;
 use codex_app_server_protocol::ThreadLoadedListParams;
+use codex_app_server_protocol::ThreadMailboxSendParams;
 use codex_app_server_protocol::ThreadMemoryModeSetParams;
 use codex_app_server_protocol::ThreadMetadataUpdateParams;
 use codex_app_server_protocol::ThreadReadParams;
@@ -1099,6 +1100,15 @@ impl TestAppServer {
     ) -> anyhow::Result<i64> {
         let params = Some(serde_json::to_value(params)?);
         self.send_request("thread/inject_items", params).await
+    }
+
+    /// Send a `thread/mailbox/send` JSON-RPC request (v2).
+    pub async fn send_thread_mailbox_send_request(
+        &mut self,
+        params: ThreadMailboxSendParams,
+    ) -> anyhow::Result<i64> {
+        let params = Some(serde_json::to_value(params)?);
+        self.send_request("thread/mailbox/send", params).await
     }
 
     /// Send a `command/exec` JSON-RPC request (v2).

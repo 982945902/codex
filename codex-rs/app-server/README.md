@@ -170,6 +170,7 @@ Example with notification opt-out:
 - `thread/rollback` — deprecated and will be removed soon. Drop the last N turns from the agent’s in-memory context and persist a rollback marker in the rollout so future resumes see the pruned history; returns the updated `thread` (with `turns` populated) on success.
 - `turn/start` — add user input to a thread and begin Codex generation; responds with the initial `turn` object and streams `turn/started`, `item/*`, and `turn/completed` notifications. `clientUserMessageId` is optional; when supplied, the corresponding `userMessage` item echoes it as `clientId`. Experimental `runtimeWorkspaceRoots` replaces the thread-scoped runtime workspace roots used to materialize `:workspace_roots`; paths must be absolute. Prefer experimental `permissions` profile selection by id for permission overrides; the legacy `sandboxPolicy` field is still accepted but cannot be combined with `permissions`. For `collaborationMode`, `settings.developer_instructions: null` means "use built-in instructions for the selected mode". Deprecated experimental `multiAgentMode` is ignored; Ultra reasoning effort selects proactive behavior.
 - `thread/inject_items` — append raw Responses API items to a loaded thread’s model-visible history without starting a user turn; returns `{}` on success.
+- `thread/mailbox/send` — experimental; deliver a bounded external text message to a loaded thread’s root-agent mailbox. When `triggerTurn` is `true`, the message starts a turn if the thread is idle; otherwise it is queued for the next eligible turn. Returns `{}` on success.
 - `turn/steer` — add user input to an already in-flight regular turn without starting a new turn; returns the active `turnId` that accepted the input. `clientUserMessageId` is optional; when supplied, the corresponding `userMessage` item echoes it as `clientId`. Review and manual compaction turns reject `turn/steer`.
 - `turn/interrupt` — request cancellation of an in-flight turn by `(thread_id, turn_id)`; success is an empty `{}` response and the turn finishes with `status: "interrupted"`.
 - `thread/realtime/start` — start a thread-scoped realtime session (experimental); pass `outputModality: "text"` or `outputModality: "audio"` to choose model output, optionally pass `model` and, for websocket transport only, `version` to override configured realtime selection for this session only, and pass `includeStartupContext: false` to omit Codex's generated startup context. By default, automatic Codex text follows the protocol's speakable output path. Pass `clientManagedHandoffs: true` to disable automatic Codex response delivery so only the client's explicit append calls produce handoffs. Pass `codexResponsesAsItems: true` to send automatic Codex responses as realtime conversation items instead, and optionally pass `codexResponseItemPrefix` to prepend experiment instructions to those items. For V1 sessions, pass `codexResponseHandoffPrefix` while item mode is disabled to route automatic Codex commentary through `conversation.handoff.append` with that prefix; final answers remain unprefixed. Returns `{}` and streams `thread/realtime/*` notifications. Omit `transport` for the websocket transport, or pass `{ "type": "webrtc", "sdp": "..." }` to create an AVAS/v1 WebRTC session from a browser-generated SDP offer; the remote answer SDP is emitted as `thread/realtime/sdp`. Explicit `version: "v2"` requests are rejected for WebRTC.
@@ -845,6 +846,20 @@ Use `thread/inject_items` to append prebuilt Responses API items to a loaded thr
     ]
 } }
 { "id": 36, "result": {} }
+```
+
+### Example: Send an external mailbox message
+
+Use `thread/mailbox/send` to deliver a bounded text message from an external integration to a loaded thread. `source` is a short single-line label included in the model-visible message. Set `triggerTurn` to `true` when the integration should wake an idle thread; set it to `false` to queue the message for the next turn.
+
+```json
+{ "method": "thread/mailbox/send", "id": 37, "params": {
+    "threadId": "thr_123",
+    "source": "pi-mailbox",
+    "message": "CI finished on branch main.",
+    "triggerTurn": true
+} }
+{ "id": 37, "result": {} }
 ```
 
 ### Example: Start realtime with WebRTC

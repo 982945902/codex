@@ -1336,6 +1336,11 @@ impl MessageProcessor {
             ClientRequest::ThreadInjectItems { params, .. } => {
                 self.turn_processor.thread_inject_items(params).await
             }
+            ClientRequest::ThreadMailboxSend { params, .. } => {
+                self.turn_processor
+                    .thread_mailbox_send(&request_id, params)
+                    .await
+            }
             ClientRequest::TurnSteer { params, .. } => {
                 self.turn_processor.turn_steer(&request_id, params).await
             }

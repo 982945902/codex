@@ -654,6 +654,13 @@ client_request_definitions! {
         serialization: thread_id(params.thread_id),
         response: v2::ThreadInjectItemsResponse,
     },
+    #[experimental("thread/mailbox/send")]
+    /// Deliver a bounded external mailbox message to a loaded thread.
+    ThreadMailboxSend => "thread/mailbox/send" {
+        params: v2::ThreadMailboxSendParams,
+        serialization: thread_id(params.thread_id),
+        response: v2::ThreadMailboxSendResponse,
+    },
     SkillsList => "skills/list" {
         params: v2::SkillsListParams,
         serialization: global_shared_read("config"),
